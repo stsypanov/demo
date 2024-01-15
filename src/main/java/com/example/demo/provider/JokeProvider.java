@@ -1,7 +1,8 @@
 package com.example.demo.provider;
 
-import com.example.demo.client.JokeForeignClient;
+import com.example.demo.client.JokeSource;
 import com.example.demo.dto.JokeDto;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.springframework.stereotype.Component;
@@ -11,12 +12,14 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 
 @Component
 @RequiredArgsConstructor
 public class JokeProvider {
-  private final JokeForeignClient jokeForeignClient;
+  private final JokeSource jokeSource;
+//  private final ExecutorService executor = Executors.newCachedThreadPool();
   private final ExecutorService executor = Executors.newFixedThreadPool(10);
 
   public List<JokeDto> getJokes(int count) {
@@ -24,11 +27,10 @@ public class JokeProvider {
       return List.of();
     }
     if (count == 1) {
-      return List.of(jokeForeignClient.takeAJoke());
+      return List.of(jokeSource.takeAJoke());
     }
     if (count <= 10) {
-      int batchSize = Math.min(count, 10);
-      return getJokesInBatch(batchSize);
+      return getJokesInBatch(count);
     }
     List<JokeDto> jokes = new ArrayList<>();
     for (int i = count; i > 0; i -= 10) {
@@ -40,8 +42,7 @@ public class JokeProvider {
 
   private List<JokeDto> getJokesInBatch(int count) {
     return IntStream.range(0, count)
-            .boxed()
-            .map(operand -> fetchAJoke())
+            .mapToObj(operand -> fetchAJoke())
             .toList()
             .stream()
             .map(this::fromFuture)
@@ -53,8 +54,16 @@ public class JokeProvider {
     return future.get();
   }
 
-  @SneakyThrows
   private Future<JokeDto> fetchAJoke() {
-    return executor.submit(jokeForeignClient::takeAJoke);
+    return executor.submit(jokeSource::takeAJoke);
+  }
+
+  @PreDestroy
+  @SneakyThrows
+  void shutdownExecutor() {
+    executor.shutdown();
+    if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
+      executor.shutdownNow();
+    }
   }
 }

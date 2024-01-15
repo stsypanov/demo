@@ -82,7 +82,7 @@ class JokeControllerTest {
     ResponseEntity<List<JokeDto>> response = restTemplate.exchange("/jokes", HttpMethod.GET, HttpEntity.EMPTY, responseType);
     assertThat(response.getStatusCode()).isEqualTo(HttpStatusCode.valueOf(200));
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().size()).isEqualTo(5);
+    assertThat(response.getBody()).hasSize(5);
   }
 
   private String getHttpUrl() {
